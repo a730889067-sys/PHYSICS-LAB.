@@ -53,6 +53,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/haraka-source"
           tar -xJf "$RUNNER_TEMP/Haraka_Animator_Source.tar.xz" -C "$RUNNER_TEMP/haraka-source"
           test -f "$RUNNER_TEMP/haraka-source/HarakaAnimator/app/src/main/assets/index.html"
+          # The hdpi launcher resource must reference a drawable resource, not a raw color literal.
+          sed -i 's#android:drawable="#android:drawable="@drawable/ic_icon_background"#' "$RUNNER_TEMP/haraka-source/HarakaAnimator/app/src/main/res/mipmap-hdpi/ic_launcher.xml"
+          grep -q '@drawable/ic_icon_background' "$RUNNER_TEMP/haraka-source/HarakaAnimator/app/src/main/res/mipmap-hdpi/ic_launcher.xml"
 
       - name: Check editor JavaScript
         run: |
