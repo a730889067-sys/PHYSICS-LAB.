@@ -8,11 +8,18 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: haraka-android-build
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build the Arabic animator
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -23,11 +30,15 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android 35 platform
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Install Android platform and build tools
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -path '*/bin/sdkmanager' -type f | sort | tail -n 1)"
+          fi
+          echo "Using SDK manager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
@@ -36,8 +47,10 @@ jobs:
 
       - name: Extract full application source
         run: |
+          test -s Haraka_Animator_Source.tar.xz
           mkdir -p "$RUNNER_TEMP/haraka-source"
           tar -xJf Haraka_Animator_Source.tar.xz -C "$RUNNER_TEMP/haraka-source"
+          test -f "$RUNNER_TEMP/haraka-source/HarakaAnimator/app/src/main/assets/index.html"
 
       - name: Check editor JavaScript
         run: |
@@ -50,19 +63,12 @@ jobs:
           gradle --no-daemon --stacktrace assembleDebug
           mkdir -p "$GITHUB_WORKSPACE/dist"
           cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/dist/Haraka-Animator.apk"
+          ls -lh "$GITHUB_WORKSPACE/dist/Haraka-Animator.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Haraka-Animator-APK
           path: dist/Haraka-Animator.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload editable source archive
-        uses: actions/upload-artifact@v4
-        with:
-          name: Haraka-Animator-Source
-          path: Haraka_Animator_Source.tar.xz
           if-no-files-found: error
           retention-days: 30
